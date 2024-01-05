@@ -103,7 +103,7 @@ def stop_program(signum, frame, url_queue):
     threads_remove_semaphore.release()
     print("Done")
 
-    print(f"{get_time()} Thanks for using Faproulette-Downloader")
+    print(f"{get_time()} Thanks for using Redd.tubeDL")
     sys.exit(0)
 
 
