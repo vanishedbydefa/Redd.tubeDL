@@ -4,9 +4,10 @@ from bs4 import *
 import cloudscraper
 import string
 import unicodedata
+import random
 
 
-from database import check_db_exists
+from database import check_db_exists, check_db_entry_exists
 
 def get_time():
     return time.strftime('[%H:%M:%S]')
@@ -15,18 +16,22 @@ def get_timestamp():
     return time.time()
 
 def clean_filename(filename):
-    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    valid_chars = "-_() %s%s" % (string.ascii_letters, string.digits)
     cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
     cleaned_filename = ''.join(c for c in cleaned_filename if c in valid_chars)
+    cleaned_filename = cleaned_filename.replace(' ', '')  # Remove spaces
+    cleaned_filename = cleaned_filename.replace('.', '')  # Remove dots
+    if cleaned_filename == "" or len(cleaned_filename) <= 3:
+        cleaned_filename += "_"
+        cleaned_filename += ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
     return cleaned_filename
 
 
-def create_urls(page_from:int, category:str):
+def create_urls(page_from:int, category:str, db_path:str, path:str, force:bool):
     if page_from == None:
         page_from = 1
     url = "http://www.redd.tube"
     page_url = url+"/category/"+category+"/"+str(page_from)
-
 
     scraper = cloudscraper.CloudScraper()
     response = scraper.get(page_url)
@@ -48,16 +53,27 @@ def create_urls(page_from:int, category:str):
             if str(link.get('href'))[:6] != "/video":
                 links.remove(link)
         
+        # Check for already downloaded videos to reduce requests
+        if not force:
+            for i,name in enumerate(names):
+                cleaned_filename = clean_filename(name.text)
+                db_entry_exist = check_db_entry_exists(db_path, category, name=cleaned_filename)
+                file_exist = check_path_exists(f'{path}/{cleaned_filename}.mp4')
+                if db_entry_exist and file_exist:
+                    names.remove(name)
+                    links.pop(i)
+                    print(f'INFO: "{cleaned_filename}" already in DB')
+
         # Extract content inside every 'row' class
         video_links = []
         for i,link in enumerate(links):
             _link = str(link.get('href'))
-            time.sleep(5)
+            time.sleep(4)
             video_page_response = scraper.get(url + str(link.get('href')))
             if video_page_response.status_code == 200:
                 soup = BeautifulSoup(video_page_response.content, 'html.parser')
                 video_mp4_link = soup.find_all('source')
-                print(video_mp4_link[0].get("src"))
+                print(f'Added {names[i].text} = {video_mp4_link[0].get("src")} to the queue')
                 if len(video_mp4_link) > 1:
                     print("Unknown links found on videos page")
                     continue
