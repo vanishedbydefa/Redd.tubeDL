@@ -1,9 +1,9 @@
 import os
 import time
-import re
-import requests
 from bs4 import *
 import cloudscraper
+import string
+import unicodedata
 
 
 from database import check_db_exists
@@ -13,6 +13,12 @@ def get_time():
 
 def get_timestamp():
     return time.time()
+
+def clean_filename(filename):
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+    cleaned_filename = ''.join(c for c in cleaned_filename if c in valid_chars)
+    return cleaned_filename
 
 
 def create_urls(page_from:int, category:str):
@@ -30,36 +36,41 @@ def create_urls(page_from:int, category:str):
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Find all elements with class 'row' (adjust as per the class name in your HTML)
+        # Find all video elements but ignore the featured ones
+        link_container = soup.find('section', class_='container g-pb-40')
+        soup = BeautifulSoup(link_container.prettify(), 'html.parser')
+
         links = soup.find_all('a', class_='nav-link')
         names = soup.find_all('h4', class_='h5 g-color-black g-font-weight-600 g-mb-10 g-mt-5 g-color-primary--hover text-truncate')
 
+        # Filter non video urls
+        for link in links:
+            if str(link.get('href'))[:6] != "/video":
+                links.remove(link)
+        
         # Extract content inside every 'row' class
         video_links = []
         for i,link in enumerate(links):
             _link = str(link.get('href'))
-            if _link[:6] == "/video":
-                time.sleep(5)
-                video_page_response = scraper.get(url + str(link.get('href')))
-                if video_page_response.status_code == 200:
-                    soup = BeautifulSoup(video_page_response.content, 'html.parser')
-                    video_mp4_link = soup.find_all('source')
-                    print(video_mp4_link[0].get("src"))
-                    if len(video_mp4_link) > 1:
-                        print("Unknown links found on videos page")
-                        continue
-                    elif len(video_mp4_link) < 1:
-                        print("No video link found")
-                        continue
-                    else:
-                        try:
-                            video_links.append([names[i].text,_link[7:], video_mp4_link[0].get("src")])
-                        except IndexError:
-                            print(f"ERROR: No name found for video {_link}")
+            time.sleep(5)
+            video_page_response = scraper.get(url + str(link.get('href')))
+            if video_page_response.status_code == 200:
+                soup = BeautifulSoup(video_page_response.content, 'html.parser')
+                video_mp4_link = soup.find_all('source')
+                print(video_mp4_link[0].get("src"))
+                if len(video_mp4_link) > 1:
+                    print("Unknown links found on videos page")
+                    continue
+                elif len(video_mp4_link) < 1:
+                    print("No video link found")
+                    continue
                 else:
-                    print('Failed to fetch the webpage')
+                    try:
+                        video_links.append([clean_filename(names[i].text),_link[7:], video_mp4_link[0].get("src")])
+                    except IndexError:
+                        print(f"ERROR: No name found for video {_link}")
             else:
-                links.remove(link)
+                print('Failed to fetch the webpage')
         return video_links
     elif response.status_code == 429:
         print('You are downloading too fast and redd.tube temporary blocked you')
