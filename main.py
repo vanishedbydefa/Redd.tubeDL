@@ -46,7 +46,7 @@ def download_video(url:list, path:str, db_path:str, category:str, page:int, forc
 
         # Write data to db
         db_semaphore.acquire()
-        insert_or_update_entry(db_path, vid_id, title, category, page, get_timestamp(), url)
+        insert_or_update_entry(db_path, vid_id, title, category, page, get_timestamp(), vid_url)
         db_semaphore.release()
     else:
         print("Download failed")
