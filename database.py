@@ -8,11 +8,12 @@ def get_max_page_from_db(db_path:str, category:str):
     cursor = conn.cursor()
 
     cursor.execute(f"SELECT MAX(page) FROM {category}")
-
     highest_page = cursor.fetchone()[0]
-
-    # Close the connection
     conn.close()
+    
+    if highest_page == None:
+        highest_page = 0
+    
     return highest_page
 
 
@@ -26,14 +27,17 @@ def check_table_exists(db_path:str, category:str):
     return False
     
 
-def check_db_entry_exists(db_path:str, category:str, id_value:int):
+def check_db_entry_exists(db_path:str, category:str, id_value=None, name=None):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Execute a SELECT query to check if the entry exists
-    cursor.execute(f'SELECT * FROM {category} WHERE id = ?', (id_value,))
+    if id_value == None and name != None:
+        cursor.execute(f'SELECT * FROM {category} WHERE name = ?', (name,))
+    elif id_value != None:
+        cursor.execute(f'SELECT * FROM {category} WHERE id = ?', (id_value,))
+    else:
+        return False
     result = cursor.fetchone()  # Fetches the first row that matches the condition
-
     conn.close()
 
     # Check if the result is not None (entry exists) or None (entry does not exist)
