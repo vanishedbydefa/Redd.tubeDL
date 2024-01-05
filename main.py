@@ -37,11 +37,11 @@ def download_video(url:list, path:str, db_path:str, category:str, page:int, forc
         file_extension = ".mp4"
 
         # Check if image with this name already exist
-        if check_path_exists(path + "/" + title + "." + file_extension):
+        if check_path_exists(f"{path}/{title}{file_extension}"):
             title += str(vid_id[:5])
 
         # After checking above condition, Image Download start
-        with open(f"{path}/{title}.{file_extension}", "wb+") as f:
+        with open(f"{path}/{title}{file_extension}", "wb+") as f:
             f.write(r.content)
 
         # Write data to db
@@ -148,52 +148,56 @@ def main():
     # Create a queue with the video URLs from current page
     start_page = 1
     if not param_beginning:
-        start_page = get_max_page_from_db(db_path, param_category)
-
-    url_queue = queue.Queue()
-    urls = create_urls(page_from=start_page, category=param_category)
-    if urls == False:
-        print("Terminating program")
-        STOP_THREADS = True
-        return
-    elif urls == None:
-        print("Unknown error occured, program will continue")
-
-    for url in urls:
-        url_queue.put(url)
-
-    # Thread logic
-    global threads_semaphore, threads, threads_remove_semaphore
-    threads_semaphore = threading.Semaphore(param_threads)
-
-    while int(url_queue.qsize()) != 0:
-        print(f"Remaining videos: {str(url_queue.qsize())} get downloaded by {str(param_threads)}/{str(len(threads))} Threads      ", end='\r')
-        threads_semaphore.acquire()
-        thread = threading.Thread(target=video_downloader, args=(param_path, db_path, param_category, start_page, param_force, url_queue, proxie,))
-        thread.start()
-        threads.append(thread)
-        
-        for thread in threads:
-            if not thread.is_alive():
-                thread.join()
-                threads_remove_semaphore.acquire()
-                threads.remove(thread)
-                threads_remove_semaphore.release()
-
-        # Register signal handler for Ctrl + C
-        signal.signal(signal.SIGINT, lambda sig, frame: stop_program(sig, frame, url_queue))
-
-        if STOP_THREADS:
-            stop_program(None, None, url_queue)
-
-    threads_remove_semaphore.acquire()
-    for thread in threads:
-        thread.join()
-        threads.remove(thread)
-        threads_semaphore.release()
-    threads_remove_semaphore.release()
+        start_page = get_max_page_from_db(db_path, param_category) + 1
     
-    print(f"{get_time()} All threads terminated")
+    while not STOP_THREADS:
+        print(f'{get_time()} Downloading page: {str(start_page)}')
+
+        url_queue = queue.Queue()
+        urls = create_urls(page_from=start_page, category=param_category, db_path=db_path, path=param_path, force=param_force)
+        if urls == False:
+            print("Terminating program")
+            STOP_THREADS = True
+            return
+        elif urls == None:
+            print("Unknown error occured, program will continue")
+
+        for url in urls:
+            url_queue.put(url)
+
+        # Thread logic
+        global threads_semaphore, threads, threads_remove_semaphore
+        threads_semaphore = threading.Semaphore(param_threads)
+
+        while int(url_queue.qsize()) != 0:
+            print(f"Remaining videos: {str(url_queue.qsize())} get downloaded by {str(param_threads)}/{str(len(threads))} Threads      ", end='\r')
+            threads_semaphore.acquire()
+            thread = threading.Thread(target=video_downloader, args=(param_path, db_path, param_category, start_page, param_force, url_queue, proxie,))
+            thread.start()
+            threads.append(thread)
+            
+            for thread in threads:
+                if not thread.is_alive():
+                    thread.join()
+                    threads_remove_semaphore.acquire()
+                    threads.remove(thread)
+                    threads_remove_semaphore.release()
+
+            # Register signal handler for Ctrl + C
+            signal.signal(signal.SIGINT, lambda sig, frame: stop_program(sig, frame, url_queue))
+
+            if STOP_THREADS:
+                stop_program(None, None, url_queue)
+
+        threads_remove_semaphore.acquire()
+        for thread in threads:
+            thread.join()
+            threads.remove(thread)
+            threads_semaphore.release()
+        threads_remove_semaphore.release()
+        
+        print(f"{get_time()} All threads terminated")
+        start_page += 1
     print(f"{get_time()} Program done")
 
 main()    
