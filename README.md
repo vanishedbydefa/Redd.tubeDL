@@ -1,7 +1,7 @@
 # Redd.tubeDL
 Redd.tubeDL is a simple multi-threading downloader for Videos, Archiven on redd.tube.
 
-## Usagw
+## Usage
 1) Downloade code as ZIP
 2) extract
 3) open a terminal e.x cmd
