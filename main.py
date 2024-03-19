@@ -109,7 +109,7 @@ def stop_program(signum, frame, url_queue):
 
 def main():
     global STOP_THREADS
-    parser = argparse.ArgumentParser(prog='Faproulette-Downloader', description='Download all faproulettes on faproulette.co', epilog='https://github.com/vanishedbydefa')
+    parser = argparse.ArgumentParser(prog='Redd.tubeDL', description='Download all videos of a category from redd.tube', epilog='https://github.com/vanishedbydefa')
     parser.add_argument('-p', '--path', default=str(os.getcwd()), type=str, help='Path to store downloaded images')
     parser.add_argument('-t', '--threads', choices=range(1, 11), default=3, type=int, help='Number of threads downloading images')
     parser.add_argument('-f', '--force', action='store_true', help='Overwrite existing images if True')
